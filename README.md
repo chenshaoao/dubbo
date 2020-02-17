@@ -1,5 +1,7 @@
 # Apache Dubbo Project
 
+# 笔记分支: dubbo-2.6.5-note
+
 [![Build Status](https://travis-ci.org/apache/dubbo.svg?branch=master)](https://travis-ci.org/apache/dubbo)
 [![codecov](https://codecov.io/gh/apache/dubbo/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/dubbo)
 ![maven](https://img.shields.io/maven-central/v/org.apache.dubbo/dubbo.svg)
