@@ -68,6 +68,18 @@ import static org.junit.Assert.fail;
 import static org.junit.matchers.JUnitMatchers.containsString;
 
 public class ExtensionLoaderTest {
+
+    // @SPI 指定扩展点默认值
+    @Test
+    public void test_getDefaultExtension() throws Exception {
+        ExtensionLoader<SimpleExt> extensionLoader = ExtensionLoader.getExtensionLoader(SimpleExt.class);
+        SimpleExt ext = extensionLoader.getDefaultExtension();
+        assertThat(ext, instanceOf(SimpleExtImpl1.class));
+
+        String name = ExtensionLoader.getExtensionLoader(SimpleExt.class).getDefaultExtensionName();
+        assertEquals("impl1", name);
+    }
+
     @Test
     public void test_getExtensionLoader_Null() throws Exception {
         try {
@@ -103,14 +115,6 @@ public class ExtensionLoaderTest {
         }
     }
 
-    @Test
-    public void test_getDefaultExtension() throws Exception {
-        SimpleExt ext = ExtensionLoader.getExtensionLoader(SimpleExt.class).getDefaultExtension();
-        assertThat(ext, instanceOf(SimpleExtImpl1.class));
-
-        String name = ExtensionLoader.getExtensionLoader(SimpleExt.class).getDefaultExtensionName();
-        assertEquals("impl1", name);
-    }
 
     @Test
     public void test_getDefaultExtension_NULL() throws Exception {

@@ -46,6 +46,7 @@ import static org.junit.matchers.JUnitMatchers.containsString;
 
 public class ExtensionLoader_Adaptive_Test {
 
+    // @Adaptive 子类手动指定默认值
     @Test
     public void test_useAdaptiveClass() throws Exception {
         ExtensionLoader<HasAdaptiveExt> loader = ExtensionLoader.getExtensionLoader(HasAdaptiveExt.class);

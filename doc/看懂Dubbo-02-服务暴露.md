@@ -6,6 +6,8 @@
 想办法先找到 ServerBootstrap 启动的点，然后 debug 看如何调用的
 看日志输出，找到分别在哪打印的
 
+是走 Spring Listener 开始调用的。 
+
 doOpen:66, NettyServer (com.alibaba.dubbo.remoting.transport.netty)
 <init>:63, AbstractServer (com.alibaba.dubbo.remoting.transport)
 <init>:61, NettyServer (com.alibaba.dubbo.remoting.transport.netty)
