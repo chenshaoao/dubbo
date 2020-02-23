@@ -353,18 +353,22 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private void doExportUrls() {
+        // TODO 获取当前服务对应的注册中心实例
         List<URL> registryURLs = loadRegistries(true);
         for (ProtocolConfig protocolConfig : protocols) {
+            // TODO 如果服务指定暴露多个协议（Dubbo、REST），依次暴露服务
             doExportUrlsFor1Protocol(protocolConfig, registryURLs);
         }
     }
 
+    // TODO 向所有注册中心暴露一个协议
     private void doExportUrlsFor1Protocol(ProtocolConfig protocolConfig, List<URL> registryURLs) {
         String name = protocolConfig.getName();
         if (name == null || name.length() == 0) {
             name = "dubbo";
         }
 
+        // TODO 读取其他配置信息到 map，用于后续构造 URL
         Map<String, String> map = new HashMap<String, String>();
         map.put(Constants.SIDE_KEY, Constants.PROVIDER_SIDE);
         map.put(Constants.DUBBO_VERSION_KEY, Version.getProtocolVersion());
@@ -374,6 +378,8 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         }
         appendParameters(map, application);
         appendParameters(map, module);
+        // TODO 读取全局配置信息，会自动添加前缀 干嘛用的？
+        // TODO 主要区分全局配置，默认在属性前面增加 default.前缀，当框架获取 URL 中的参数时，如果不存在则会自动尝试获取 default.前缀对应的值。
         appendParameters(map, provider, Constants.DEFAULT_KEY);
         appendParameters(map, protocolConfig);
         appendParameters(map, this);
@@ -457,6 +463,8 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                 map.put(Constants.TOKEN_KEY, token);
             }
         }
+        // TODO protocolConfig 配置是在哪里初始化的，多次 debug，往上找。
+        // TODO 结论: ProtocolConfig Bean 初始化比 ServiceBean 早，ServiceBean afterSet 自己没有设置，里会找默认的 ProtocolConfig Bean 实现。
         if (Constants.LOCAL_PROTOCOL.equals(protocolConfig.getName())) {
             protocolConfig.setRegister(false);
             map.put("notify", "false");
@@ -469,6 +477,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
         String host = this.findConfigedHosts(protocolConfig, registryURLs, map);
         Integer port = this.findConfigedPorts(protocolConfig, name, map);
+        // TODO 创建 URL，重写了 toString 方法 拼装参数
         URL url = new URL(name, host, port, (contextPath == null || contextPath.length() == 0 ? "" : contextPath + "/") + path, map);
 
         if (ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
@@ -481,6 +490,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         // don't export when none is configured
         if (!Constants.SCOPE_NONE.toString().equalsIgnoreCase(scope)) {
 
+            // TODO 本地服务暴露
             // export to local if the config is not remote (export to remote only when config is remote)
             if (!Constants.SCOPE_REMOTE.toString().equalsIgnoreCase(scope)) {
                 exportLocal(url);
@@ -488,6 +498,8 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
             // export to remote if the config is not local (export to local only when config is local)
             if (!Constants.SCOPE_LOCAL.toString().equalsIgnoreCase(scope)) {
                 if (logger.isInfoEnabled()) {
+                    // TODO 暴露前先打印日志
+                    // TODO URL new 的时候拼好的
                     logger.info("Export dubbo service " + interfaceClass.getName() + " to url " + url);
                 }
                 if (registryURLs != null && !registryURLs.isEmpty()) {
@@ -495,9 +507,12 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                         url = url.addParameterIfAbsent(Constants.DYNAMIC_KEY, registryURL.getParameter(Constants.DYNAMIC_KEY));
                         URL monitorUrl = loadMonitor(registryURL);
                         if (monitorUrl != null) {
+                            // TODO 如果配置了监控地址，则服务调用信息会上报。在 url 中拼接 monitor 参数
+                            // TODO 框架会在拦截器中执行数据上报
                             url = url.addParameterAndEncoded(Constants.MONITOR_KEY, monitorUrl.toFullString());
                         }
                         if (logger.isInfoEnabled()) {
+                            // TODO 注册前先打印日志
                             logger.info("Register dubbo service " + interfaceClass.getName() + " url " + url + " to registry " + registryURL);
                         }
 
@@ -507,16 +522,36 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                             registryURL = registryURL.addParameter(Constants.PROXY_KEY, proxy);
                         }
 
+                        // TODO 通过动态代理转换成 Invoker，registryURL 存储的是注册中心地址，使用 export 作为 key 追加服务元数据信息 （服务就是当前 dubbo 接口的 ServiceBean）
+                        // TODO 通过动态代理的方式创建 Invoker 对象，在服务端生成的是 AbstractProxyInvoker 实例，
+                        // TODO 所有真实的方法调用（consumer 的请求反序列化完成后）都会委托给代理，然后代理转发给服务 ref 调用。
+                        // TODO 两种代理方式的实现原理？ 书上有讲
+                        // TODO 看 invoker.getURL() 的值。 export 属性就是服务的 URL
                         Invoker<?> invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(Constants.EXPORT_KEY, url.toFullString()));
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
 
+                        // TODO 服务暴露后向注册中心注册服务信息: 先触发服务暴露（端口打开等），然后进行服务元数据注册。
+                        // TODO 这里的 protocol 是 registry 协议。 wrapperInvoker.getUrl().protocol
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
+                        // TODO 多个注册中心，存 list
                         exporters.add(exporter);
+
+                        // TODO 暴露方法说明:
+                        /**
+                         * protocol 实例会自动根据服务暴露 URL 自动做适配，有注册中心场景会取出具体协议，比如 Zookeeper，
+                         * 首先会创建注册中心实例，然后取出 export 对应的具体服务 URL，最后用服务 URL 对应的协议（默认为 Dubbo）进行服务暴露，
+                         * 当服务暴露成功后把服务数据注册到 Zookeeper。
+                         * 如果没有注册中心，会自动判断 URL 对应的协议（Dubbo）并直接暴露服务，从而没有经过注册中心。
+                         */
                     }
                 } else {
                     Invoker<?> invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, url);
-                    DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
 
+                    DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
+                    // TODO 处理没有使用注册中心的场景，直接进行服务暴露，不需要元数据注册。
+                    // TODO 这里暴露的 URL 信息是以具体 RPC 协议开的，并不是以注册中心协议开头的。
+                    // TODO 配置方式 <dubbo:service registry="N/A" />
+                    // TODO 这里的 protocol 是 dubbo 协议。 wrapperInvoker.getUrl().protocol
                     Exporter<?> exporter = protocol.export(wrapperInvoker);
                     exporters.add(exporter);
                 }
@@ -536,6 +571,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
             Exporter<?> exporter = protocol.export(
                     proxyFactory.getInvoker(ref, (Class) interfaceClass, local));
             exporters.add(exporter);
+            // TODO 暴露后再打印日志
             logger.info("Export dubbo service " + interfaceClass.getName() + " to local registry");
         }
     }

@@ -128,11 +128,14 @@ public class RegistryProtocol implements Protocol {
 
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
+        // TODO 委托具体协议（Dubbo）进行服务暴露，创建 NettyServer 监听端口和保存服务实例
+        // TODO 服务实例保存在 Map<String, ExporterChangeableWrapper<?>> bounds 里，providerurl -> exporter
         //export invoker
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker);
 
         URL registryUrl = getRegistryUrl(originInvoker);
 
+        // TODO 创建注册中心实例（对象），于注册中心创建 TCP 连接
         //registry provider
         final Registry registry = getRegistry(originInvoker);
         final URL registeredProviderUrl = getRegisteredProviderUrl(originInvoker);
@@ -143,6 +146,7 @@ public class RegistryProtocol implements Protocol {
         ProviderConsumerRegTable.registerProvider(originInvoker, registryUrl, registeredProviderUrl);
 
         if (register) {
+            // TODO 注册服务（ServiceBean）元数据到注册中心
             register(registryUrl, registeredProviderUrl);
             ProviderConsumerRegTable.getProviderWrapper(originInvoker).setReg(true);
         }
@@ -152,13 +156,16 @@ public class RegistryProtocol implements Protocol {
         final URL overrideSubscribeUrl = getSubscribedOverrideUrl(registeredProviderUrl);
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
+        // TODO 监听服务接口下 configurators 节点，用于处理动态配置
         registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
+        // TODO 看内部静态类实现，一堆注销方法
         //Ensure that a new exporter instance is returned every time export
         return new DestroyableExporter<T>(exporter, originInvoker, overrideSubscribeUrl, registeredProviderUrl);
     }
 
     @SuppressWarnings("unchecked")
     private <T> ExporterChangeableWrapper<T> doLocalExport(final Invoker<T> originInvoker) {
+        // TODO originInvoker.getUrl().getParameterAndDecoded(Constants.EXPORT_KEY)
         String key = getCacheKey(originInvoker);
         ExporterChangeableWrapper<T> exporter = (ExporterChangeableWrapper<T>) bounds.get(key);
         if (exporter == null) {
@@ -166,6 +173,7 @@ public class RegistryProtocol implements Protocol {
                 exporter = (ExporterChangeableWrapper<T>) bounds.get(key);
                 if (exporter == null) {
                     final Invoker<?> invokerDelegete = new InvokerDelegete<T>(originInvoker, getProviderUrl(originInvoker));
+                    // TODO invokerDelegete.getUrl().protocol
                     exporter = new ExporterChangeableWrapper<T>((Exporter<T>) protocol.export(invokerDelegete), originInvoker);
                     bounds.put(key, exporter);
                 }
@@ -486,11 +494,13 @@ public class RegistryProtocol implements Protocol {
         public void unexport() {
             Registry registry = RegistryProtocol.INSTANCE.getRegistry(originInvoker);
             try {
+                // TODO 移除已注册的元数据
                 registry.unregister(registerUrl);
             } catch (Throwable t) {
                 logger.warn(t.getMessage(), t);
             }
             try {
+                // TODO 去掉订阅配置监听器
                 NotifyListener listener = RegistryProtocol.INSTANCE.overrideListeners.remove(subscribeUrl);
                 registry.unsubscribe(subscribeUrl, listener);
             } catch (Throwable t) {
@@ -506,6 +516,7 @@ public class RegistryProtocol implements Protocol {
                             logger.info("Waiting " + timeout + "ms for registry to notify all consumers before unexport. Usually, this is called when you use dubbo API");
                             Thread.sleep(timeout);
                         }
+                        // TODO Invoker 销毁时注销端口和 map 中服务实例等资源
                         exporter.unexport();
                     } catch (Throwable t) {
                         logger.warn(t.getMessage(), t);
