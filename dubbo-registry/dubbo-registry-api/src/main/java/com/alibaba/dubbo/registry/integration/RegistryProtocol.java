@@ -157,6 +157,7 @@ public class RegistryProtocol implements Protocol {
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
         // TODO 监听服务接口下 configurators 节点，用于处理动态配置
+        // TODO 感觉这里也是大学问。 全局搜 "Notify urls" ，就是这里触发的
         registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
         // TODO 看内部静态类实现，一堆注销方法
         //Ensure that a new exporter instance is returned every time export
